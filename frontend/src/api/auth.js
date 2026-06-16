@@ -62,4 +62,14 @@ export const resetPassword = (token, passwords) =>
 export const getMe = () =>
   api.get('/auth/me');
 
+export const getIdentityStatus = () =>
+  api.get('/auth/identity-status');
+
+export const verifyIdentity = (formData) =>
+  api.post('/auth/verify-identity', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+
 export default api;

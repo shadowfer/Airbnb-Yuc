@@ -1,0 +1,611 @@
+PLATAFORMA TIPO AIRBNB
+Sprint 3 — Búsqueda, Mapa y Calendario
+02 Junio – 13 Junio 2026  ·  Corte: Lunes 9 Junio (día 6 de 10)
+
+⬤  Alvaro Novelo  - API/Int.
+⬤  Carlos Poxtan  - Backend
+⬤  Fernely Flores  - Frontend
+
+31 SP
+Sprint 3 total
+10 tareas
+5 US · 2 personas c/u
+4 vencen HOY
+US-10 y US-11
+4 en curso
+US-12 y US-13
+13 Jun
+Sprint Review
+
+ESTADO DE TAREAS AL 9 DE JUNIO
+ID
+Tarea
+Responsable
+Fechas
+Estado
+US-10 FE+BE
+Mapa Leaflet + GET /properties/search (ubicación+fechas)
+Fernely + Carlos
+02–09 Jun
+🟡 VENCE HOY
+US-11 FE+BE
+Filtros precio/tipo/huéspedes + Query dinámica Sequelize
+Fernely + Carlos
+04–09 Jun
+🟡 VENCE HOY
+US-13 FE
+Calendario disponibilidad anfitrión — bloqueo fechas (UI)
+Fernely Flores
+04–11 Jun
+🟡 EN CURSO
+US-13 API
+CRUD /availability endpoints + helper checkAvailability
+Álvaro Novelo
+04–11 Jun
+🟡 EN CURSO
+US-12 FE
+Página detalle propiedad — galería, mapa, amenidades, reseñas
+Fernely Flores
+09–13 Jun
+⚡ HOY INICIA
+US-12 BE
+GET /properties/:id enriquecido + GET /reviews
+Carlos Poxtan
+09–13 Jun
+⚡ HOY INICIA
+US-14 FE
+Disponibilidad en tiempo real en widget de reserva
+Fernely Flores
+11–13 Jun
+⏳ JUEVES
+US-14 API
+GET /availability/:propertyId/check — solapamiento
+Álvaro Novelo
+11–13 Jun
+⏳ JUEVES
+
+PLAN DÍA A DÍA — 9 al 13 de Junio
+HOY LUN 9
+→  Fernely: US-10 FE terminado y en staging + iniciar US-12 FE (layout + galería)
+→  Carlos: US-10 BE + US-11 BE en staging + iniciar US-12 BE (enriquecer GET /properties/:id)
+→  Álvaro: US-13 API — GET + POST /availability en staging, avanzar DELETE
+MAR 10
+→  Fernely: US-11 FE terminado + US-13 FE — calendario con fechas bloqueadas visible
+→  Carlos: US-12 BE terminado (GET /reviews incluido)
+→  Álvaro: US-13 API — DELETE y función helper checkAvailability listos
+MIÉ 11
+→  Fernely: US-12 FE terminado (detalle completo) + iniciar US-14 FE
+→  Carlos: Pruebas integrales búsqueda + detalle + soporte a Álvaro si necesario
+→  Álvaro: US-14 API — GET /availability/:propertyId/check listo en staging
+JUE 12
+→  Fernely: US-13 FE terminado (bloqueo/desbloqueo funcional) + US-14 FE integrado
+→  Álvaro + Carlos: Pruebas end-to-end del flujo completo: buscar → ver detalle → verificar disponibilidad
+→  TODO: Resolver bugs que aparezcan en la integración
+VIE 13 — REVIEW
+→  Demo en staging: huésped busca en mapa → filtra → ve detalle → verifica disponibilidad → anfitrión bloquea fechas
+→  Product Owner (Álvaro) acepta o rechaza cada historia de usuario
+→  Sprint Retrospective + Sprint Planning del Sprint 4
+
+US-10 — FE  Mapa interactivo Leaflet — marcadores, filtro fechas/ubicación
+🟡  VENCE HOY (9 Jun) — último día
+👤 Fernely Flores   ·   Área: Frontend   ·   📅 02 Jun → 09 Jun   ·   8 Story Points
+
+
+¿Qué es esta tarea?
+Página de búsqueda principal con mapa Leaflet que muestra marcadores de todas las propiedades disponibles. El huésped puede filtrar por ubicación (arrastrando el mapa o escribiendo ciudad) y por rango de fechas check-in/check-out. Los marcadores muestran el precio y al hacer clic abren una tarjeta de preview de la propiedad. Al mover el mapa, los resultados se actualizan automáticamente con las propiedades que caen dentro del área visible.
+
+📋  Pasos a seguir — qué hacer exactamente
+1
+Setup Leaflet en React
+Instalar react-leaflet y leaflet. Importar los CSS de Leaflet en el entry point (App.jsx o index.css): import 'leaflet/dist/leaflet.css'. Corregir el bug conocido de los íconos de Leaflet con webpack/Vite (delete L.Icon.Default.prototype._getIconUrl y configurar los paths manualmente). Crear el componente MapView con <MapContainer center={[20.5,-87.0]} zoom={12}>. Verificar que el mapa renderiza sin errores en consola.
+2
+Cargar propiedades como marcadores
+Al montar el componente, hacer GET /properties/search (sin filtros iniciales) para cargar las propiedades del área visible. Por cada propiedad en el resultado, renderizar un <Marker position={[lat, lng]}> dentro del mapa. Usar un ícono personalizado con Tailwind que muestre el precio: '$ {precio}/noche' como badge flotante sobre el marcador.
+3
+Popup de preview al hacer clic en marcador
+Al hacer clic en un marcador, mostrar un <Popup> de Leaflet con: foto de portada (primera foto de la propiedad), título, precio por noche, número de habitaciones y baños, botón 'Ver propiedad' que navega a /properties/:id. El popup debe cerrarse al hacer clic fuera o en la X.
+4
+Filtro de fechas check-in / check-out
+Encima del mapa, mostrar dos inputs de fecha: Check-in y Check-out. Usar react-datepicker o inputs type='date' nativos. Check-out debe ser siempre posterior al Check-in (deshabilitar fechas inválidas). Al cambiar las fechas, volver a llamar GET /properties/search?checkIn=YYYY-MM-DD&checkOut=YYYY-MM-DD y actualizar los marcadores. Las propiedades con esas fechas bloqueadas en availability NO deben aparecer.
+5
+Filtro por área del mapa — onMoveEnd
+Registrar el evento onMoveEnd del MapContainer. Al terminar de mover o hacer zoom el mapa, leer los bounds actuales con map.getBounds(). Llamar GET /properties/search con los parámetros: ?swLat=&swLng=&neLat=&neLng= (esquinas del área visible). Actualizar los marcadores con los nuevos resultados. Incluir un estado de carga para que el usuario sepa que está buscando.
+6
+Lista lateral sincronizada con el mapa
+Al lado del mapa (o debajo en mobile), mostrar una lista de tarjetas de las propiedades que están en el área visible. Al hacer hover en una tarjeta de la lista, resaltar el marcador correspondiente en el mapa (cambiar color del ícono). Al hacer clic en la tarjeta, navegar a /properties/:id. La lista se actualiza junto con los marcadores al mover el mapa.
+7
+Responsive mobile
+En pantallas pequeñas (< 768px), mostrar el mapa en la parte superior a pantalla completa y la lista de tarjetas debajo en scroll vertical. Añadir un botón flotante 'Ver lista / Ver mapa' para alternar entre las dos vistas en mobile. Verificar que el mapa no quede con altura 0 (problema común en Leaflet con Flexbox — asignar height explícito en CSS).
+
+✅  Criterios de Aceptación (DoD)
+☐  Mapa Leaflet renderiza sin errores en consola — íconos visibles correctamente
+☐  Marcadores en todas las propiedades activas con badge de precio
+☐  Popup con foto, título, precio y botón 'Ver propiedad' al hacer clic en marcador
+☐  Filtro de fechas funcional — propiedades no disponibles desaparecen del mapa
+☐  Al mover/zoom el mapa, los marcadores se actualizan con las propiedades del área
+☐  Lista lateral sincronizada — hover en lista resalta marcador en mapa
+☐  Responsivo: vista mobile alterna entre mapa y lista
+☐  Funciona en staging — demostrable hoy mismo
+🔌  Endpoints
+→  GET /properties/search?checkIn=&checkOut=&swLat=&swLng=&neLat=&neLng= → { properties[] }
+
+🗄️  Tablas de BD
+No toca BD directamente
+
+📦  Librerías
+◉  react-leaflet + leaflet — mapa interactivo
+◉  react-datepicker — selector de fechas check-in/check-out
+
+⚠  Notas y dependencias:  VENCE HOY. Coordinar con Carlos que GET /properties/search esté disponible para integrar. Si el mapa no está listo hoy, es el bloqueante más crítico del Sprint 3 porque US-12 (detalle propiedad) depende de que la búsqueda funcione.
+
+
+
+US-10 — BE  Endpoint GET /properties/search — ubicación + fechas
+🟡  VENCE HOY (9 Jun) — último día
+👤 Carlos Poxtan   ·   Área: Backend   ·   📅 02 Jun → 09 Jun   ·   8 Story Points
+
+
+¿Qué es esta tarea?
+Endpoint de búsqueda de propiedades que acepta filtros de área geográfica (bounds del mapa Leaflet) y rango de fechas. Excluye las propiedades que tienen fechas bloqueadas en la tabla availability que se solapen con el rango pedido. Devuelve solo propiedades con status='active' con su foto de portada incluida para los marcadores del mapa.
+
+📋  Pasos a seguir — qué hacer exactamente
+1
+Estructura del endpoint
+Crear GET /properties/search en el router de propiedades. Aceptar query params: checkIn (DATE), checkOut (DATE), swLat, swLng, neLat, neLng (DECIMAL — bounds del mapa), page (default 1), limit (default 20). Todos son opcionales — sin filtros devuelve las primeras 20 propiedades activas.
+2
+Filtro geográfico por bounds
+Si se reciben los 4 parámetros de bounds (swLat, swLng, neLat, neLng), añadir a la query WHERE: lat BETWEEN swLat AND neLat AND lng BETWEEN swLng AND neLng. Usar Sequelize Op.between para ambas condiciones. Esto devuelve solo las propiedades dentro del rectángulo visible en el mapa.
+3
+Filtro de disponibilidad por fechas
+Si se reciben checkIn y checkOut, excluir propiedades que tengan al menos una fecha bloqueada en el rango. Subquery: WHERE id NOT IN (SELECT property_id FROM availability WHERE blocked_date BETWEEN checkIn AND checkOut). En Sequelize usar Op.notIn con una subquery literal o un findAll previo de los IDs bloqueados.
+4
+Incluir foto de portada
+En el include de Sequelize, traer la primera foto de cada propiedad: include: [{ model: PropertyPhoto, as: 'photos', where: { order_index: 0 }, required: false, limit: 1 }]. Esto evita traer todas las fotos de cada propiedad (que sería muy pesado para el mapa).
+5
+Estructura de respuesta
+Responder 200 con: { properties: [{ id, title, lat, lng, price_per_night, bedrooms, bathrooms, max_guests, photos: [{ url }] }], total, page, pages }. Solo los campos necesarios para los marcadores y la lista lateral — no todo el objeto propiedad.
+6
+Índices de BD para performance
+Verificar que existen índices en properties(lat, lng), properties(status), y availability(property_id, blocked_date). Si no existen, crearlos con una migración de Sequelize. Sin índices, la búsqueda geográfica en una tabla grande sería muy lenta.
+7
+Pruebas del endpoint
+Probar con Postman o Thunder Client: sin filtros (debe devolver propiedades), con bounds del mapa de una ciudad, con fechas donde hay propiedades bloqueadas (deben desaparecer), con ambos filtros combinados. Verificar el tiempo de respuesta — debe ser < 500ms.
+
+✅  Criterios de Aceptación (DoD)
+☐  GET /properties/search sin filtros → devuelve primeras 20 propiedades activas con foto de portada
+☐  Filtro de bounds (swLat/swLng/neLat/neLng) → solo propiedades dentro del área del mapa
+☐  Filtro de fechas → propiedades con availability bloqueada en ese rango NO aparecen
+☐  Ambos filtros combinados funcionan correctamente
+☐  Respuesta incluye: id, title, lat, lng, price_per_night, bedrooms, bathrooms, foto portada
+☐  Paginación funcional con page y limit
+☐  Índices en lat/lng y availability — respuesta < 500ms
+☐  Prueba en Postman documentada y pasando
+🔌  Endpoints
+→  GET /properties/search?checkIn=&checkOut=&swLat=&swLng=&neLat=&neLng=&page=&limit= → 200 { properties[], total, page }
+
+🗄️  Tablas de BD
+◈  properties — SELECT con filtros geográficos y de status
+◈  availability — subquery para excluir propiedades con fechas bloqueadas
+◈  property_photos — include de foto de portada (order_index=0)
+
+📦  Librerías
+◉  sequelize Op.between, Op.notIn — filtros en query
+
+⚠  Notas y dependencias:  VENCE HOY. Este endpoint es la columna vertebral del Sprint 3 — sin él, US-10 FE, US-11 y US-12 no pueden integrarse. Prioridad máxima. Tenerlo en staging antes de las 6pm de hoy.
+
+
+
+US-11 — FE  UI de filtros — rango de precio, tipo de propiedad, nº huéspedes
+🟡  VENCE HOY (9 Jun) — último día
+👤 Fernely Flores   ·   Área: Frontend   ·   📅 04 Jun → 09 Jun   ·   5 Story Points
+
+
+¿Qué es esta tarea?
+Panel de filtros avanzados que se integra con la búsqueda del mapa. El huésped puede filtrar por rango de precio (slider doble), tipo de propiedad (checkboxes) y número mínimo de huéspedes. Al aplicar los filtros, se vuelve a llamar el endpoint de búsqueda con los nuevos parámetros y el mapa y la lista se actualizan.
+
+📋  Pasos a seguir — qué hacer exactamente
+1
+Componente FilterPanel
+Crear componente FilterPanel que puede ser un drawer lateral en desktop o un modal bottom-sheet en mobile. Incluir botón 'Filtros' con badge que muestre cuántos filtros están activos (ej: 'Filtros (3)'). Al aplicar: cerrar el panel y actualizar la búsqueda. Al limpiar: resetear todos los valores a default.
+2
+Filtro rango de precio
+Slider doble (range slider) para precio mínimo y máximo por noche. Mostrar los valores actuales encima del slider: '$500 — $2,000 / noche'. Usar la librería react-slider o @radix-ui/react-slider para el doble slider. El rango máximo inicial se puede calcular del máximo precio que devuelve el backend, o fijar un máximo de referencia (ej: $5,000).
+3
+Filtro tipo de propiedad
+Checkboxes con los tipos del ENUM de BD: Apartamento, Casa, Habitación, Villa, Cabaña. Cada uno con su ícono. Puede seleccionarse ninguno (sin filtro), uno o varios. Al seleccionar varios, el backend devuelve propiedades de cualquiera de los tipos seleccionados (OR, no AND).
+4
+Filtro número de huéspedes
+Input numérico o stepper (+/-) para 'mínimo de huéspedes'. Valor default: 1. Al poner 4, solo aparecen propiedades con max_guests >= 4. Mostrar etiqueta: '4 huéspedes'.
+5
+Integración con el estado de búsqueda
+Los filtros se guardan en el estado del componente padre (SearchPage). Al cambiar cualquier filtro y pulsar 'Aplicar', se construye el query string completo: ?checkIn=&checkOut=&minPrice=&maxPrice=&propertyType=&minGuests=&swLat=...  y se llama GET /properties/search con todos los parámetros. Los filtros de fechas y bounds del mapa se mantienen al abrir y cerrar el panel.
+6
+Indicadores visuales de filtros activos
+En el botón 'Filtros', mostrar un badge con el número de filtros activos. En la lista de resultados, mostrar un texto: '24 propiedades encontradas con los filtros actuales'. Si no hay resultados: ilustración + mensaje 'No encontramos propiedades con estos filtros. Intenta cambiar las fechas o el área.'
+
+✅  Criterios de Aceptación (DoD)
+☐  Panel de filtros abre como drawer (desktop) o bottom-sheet (mobile)
+☐  Slider doble de precio funcional con valores min y max visibles
+☐  Checkboxes de tipo de propiedad — múltiple selección
+☐  Stepper de número mínimo de huéspedes
+☐  Al aplicar: GET /properties/search con todos los parámetros combinados
+☐  Botón 'Filtros' con badge de cuántos filtros están activos
+☐  Mensaje cuando no hay resultados con los filtros actuales
+☐  Botón 'Limpiar filtros' resetea todo a valores default
+🔌  Endpoints
+→  GET /properties/search?minPrice=&maxPrice=&propertyType=&minGuests=&... → { properties[] }
+
+🗄️  Tablas de BD
+No toca BD directamente
+
+📦  Librerías
+◉  @radix-ui/react-slider o react-slider — slider doble de precio
+◉  lucide-react — íconos para tipos de propiedad
+
+⚠  Notas y dependencias:  VENCE HOY. Depende de que US-10 BE tenga el endpoint funcionando. Los filtros se suman a los params de la búsqueda existente — no es un endpoint nuevo.
+
+
+
+US-11 — BE  Query SQL optimizada con filtros dinámicos — Sequelize
+🟡  VENCE HOY (9 Jun) — último día
+👤 Carlos Poxtan   ·   Área: Backend   ·   📅 04 Jun → 09 Jun   ·   5 Story Points
+
+
+¿Qué es esta tarea?
+Extensión del endpoint GET /properties/search para aceptar los filtros adicionales de precio, tipo de propiedad y número de huéspedes. La query se construye dinámicamente — solo se agrega un filtro a la cláusula WHERE si el parámetro fue enviado por el cliente. Sin parámetro = sin filtro para ese campo.
+
+📋  Pasos a seguir — qué hacer exactamente
+1
+Filtro de precio mínimo y máximo
+Si se reciben minPrice y/o maxPrice, agregar a whereClause: price_per_night: { [Op.between]: [minPrice, maxPrice] }. Si solo viene minPrice: { [Op.gte]: minPrice }. Si solo viene maxPrice: { [Op.lte]: maxPrice }. Validar que son números positivos — ignorar si no son válidos.
+2
+Filtro de tipo de propiedad
+El parámetro propertyType puede venir como string único ('house') o como array ('apartment,house,villa' → split por coma). Si es un solo tipo: WHERE property_type = 'house'. Si son varios: WHERE property_type IN ('apartment','house','villa'). En Sequelize usar Op.in con el array. Si no viene el parámetro: no filtrar por tipo.
+3
+Filtro de número mínimo de huéspedes
+Si se recibe minGuests (número entero >= 1), agregar: max_guests: { [Op.gte]: minGuests }. Esto garantiza que la propiedad tenga capacidad suficiente para el grupo. Validar que sea un entero positivo.
+4
+Construcción dinámica del whereClause
+Construir el objeto where de Sequelize de forma dinámica. Empezar con: const where = { status: 'active' }. Luego agregar condiciones solo si el parámetro está presente: if (minPrice) where.price_per_night = { ...where.price_per_night, [Op.gte]: minPrice }. Este patrón evita tener múltiples versiones del endpoint.
+5
+Ordenamiento de resultados
+Agregar parámetro sort al endpoint: 'price_asc', 'price_desc', 'newest' (created_at DESC). Default: 'newest'. Mapear el string al array de Sequelize order: [['price_per_night','ASC']], etc. Incluir en el objeto de respuesta el sort aplicado para que el frontend pueda mostrar el criterio activo.
+6
+Prueba con todos los filtros combinados
+Probar en Postman el endpoint con todos los filtros al mismo tiempo: bounds + fechas + precio + tipo + huéspedes. Verificar que la SQL generada (activar logging de Sequelize: logging: console.log en desarrollo) tiene todos los WHERE esperados y no tiene condiciones innecesarias cuando los params no se envían.
+
+✅  Criterios de Aceptación (DoD)
+☐  minPrice y maxPrice filtran por price_per_night con Op.between/gte/lte según corresponda
+☐  propertyType acepta valor único o múltiples separados por coma — usa Op.in
+☐  minGuests filtra por max_guests >= minGuests
+☐  whereClause se construye dinámicamente — sin parámetro = sin esa condición WHERE
+☐  Parámetro sort funcional: price_asc, price_desc, newest
+☐  Todos los filtros funcionan combinados con bounds y fechas del US-10
+☐  Logging de Sequelize verificado — SQL generada es correcta y eficiente
+☐  Prueba en Postman con todos los parámetros simultáneos
+🔌  Endpoints
+→  GET /properties/search?minPrice=&maxPrice=&propertyType=apartment,house&minGuests=&sort= → 200 { properties[], total }
+
+🗄️  Tablas de BD
+◈  properties — extensión del WHERE del US-10 BE
+
+📦  Librerías
+◉  sequelize Op.between, Op.gte, Op.lte, Op.in — operadores de comparación
+
+⚠  Notas y dependencias:  Esta tarea es una extensión de US-10 BE — si US-10 BE está bien estructurado, agregar estos filtros es relativamente rápido. Debe estar en staging hoy.
+
+
+
+US-13 — FE  Calendario de disponibilidad del anfitrión — bloqueo de fechas
+🟡  EN CURSO — Vence 11 Jun
+👤 Fernely Flores   ·   Área: Frontend   ·   📅 04 Jun → 11 Jun   ·   8 Story Points
+
+
+¿Qué es esta tarea?
+Vista en el panel del anfitrión para gestionar la disponibilidad de cada propiedad. El anfitrión puede seleccionar rangos de fechas en un calendario y bloquearlas manualmente (ej: para uso personal, mantenimiento). Las fechas ya bloqueadas por reservas confirmadas se muestran en un color diferente y no se pueden desbloquear desde aquí.
+
+📋  Pasos a seguir — qué hacer exactamente
+1
+Componente AvailabilityCalendar
+Usar react-datepicker en modo de rango (selectsRange) o la librería react-calendar. Mostrar el calendario dentro del panel del anfitrión en /host/properties/:id/availability. Al cargar la vista, hacer GET /availability/:propertyId para obtener todas las fechas bloqueadas y marcarlas en el calendario.
+2
+Visualización de fechas bloqueadas
+Fechas bloqueadas por el anfitrión manualmente (reason='host_block'): color rojo/naranja con tachado. Fechas bloqueadas por reservas confirmadas (reason='reservation'): color azul/morado — con tooltip 'Reservado: check-in [fecha] — check-out [fecha]'. Fechas disponibles: fondo blanco. Fecha de hoy: resaltada.
+3
+Selección de rango para bloquear
+El anfitrión hace clic en una fecha de inicio y luego en una fecha de fin. El rango se resalta durante la selección. Mostrar un botón 'Bloquear fechas seleccionadas' que se activa solo cuando hay un rango válido seleccionado. El botón llama POST /availability con el array de fechas del rango.
+4
+Bloquear fechas — POST /availability
+Al confirmar: generar el array de todas las fechas del rango seleccionado (día por día). Llamar POST /availability con { property_id, dates: ['2026-07-01','2026-07-02',...], reason: 'host_block' }. Al éxito 201: marcar las fechas en el calendario local sin recargar. Mostrar toast de confirmación.
+5
+Desbloquear fecha individual — DELETE /availability/:id
+Al hacer clic en una fecha ya bloqueada con reason='host_block', mostrar un tooltip o popover con: la fecha, el motivo, y un botón 'Desbloquear'. Al confirmar el desbloqueo: llamar DELETE /availability/:id. Actualizar el calendario localmente. Las fechas con reason='reservation' NO muestran botón de desbloquear.
+6
+Navegación multi-mes
+Mostrar 2 meses simultáneamente (mes actual y siguiente) para facilitar la selección de rangos que cruzan meses. Flechas para navegar meses. En mobile: mostrar solo 1 mes a la vez.
+
+✅  Criterios de Aceptación (DoD)
+☐  Calendario muestra fechas bloqueadas: rojo (host_block) y azul (reservation) con tooltip
+☐  Selección de rango de fechas para bloquear — botón activo solo con rango válido
+☐  POST /availability bloquea el rango — calendario se actualiza sin recargar
+☐  Clic en fecha host_block muestra opción de desbloquear
+☐  DELETE /availability/:id desbloquea — calendario actualizado
+☐  Fechas de reservas confirmadas NO se pueden desbloquear desde este panel
+☐  2 meses visibles en desktop, 1 en mobile
+☐  Funciona en staging antes del 11 Jun
+🔌  Endpoints
+→  GET  /availability/:propertyId → { blockedDates: [{id, date, reason, reservation_id}] }
+→  POST /availability → { property_id, dates[], reason } → 201 { created: N }
+→  DELETE /availability/:id → 200 { message }
+
+🗄️  Tablas de BD
+No toca BD directamente
+
+📦  Librerías
+◉  react-datepicker (mode range) o react-calendar — selector de fechas múltiples
+◉  date-fns — utilidades para generar arrays de fechas de un rango
+
+⚠  Notas y dependencias:  EN CURSO — vence el 11 Jun (jueves). Coordinar con Álvaro para que GET y POST /availability estén disponibles antes del miércoles 10.
+
+
+
+US-13 — API  CRUD calendario — POST /availability + DELETE /availability/:id
+🟡  EN CURSO — Vence 11 Jun
+👤 Álvaro Novelo   ·   Área: API/Int.   ·   📅 04 Jun → 11 Jun   ·   8 Story Points
+
+
+¿Qué es esta tarea?
+Endpoints para gestionar las fechas bloqueadas en el calendario del anfitrión. Permite bloquear múltiples fechas en una sola llamada (para rangos), consultar todas las fechas bloqueadas de una propiedad, y desbloquear una fecha específica. Incluye validación de solapamiento con reservas existentes para no desbloquear fechas que están ocupadas por reservas.
+
+📋  Pasos a seguir — qué hacer exactamente
+1
+GET /availability/:propertyId — Consultar fechas bloqueadas
+Endpoint público (no requiere JWT, para que el frontend de búsqueda también lo use). Buscar todos los registros de availability WHERE property_id = :propertyId. Incluir relación con reservations para las fechas con reason='reservation' (para el tooltip). Devolver array: [{ id, blocked_date, reason, reservation: { id, check_in, check_out } | null }]. Ordenar por blocked_date ASC.
+2
+POST /availability — Bloquear rango de fechas
+Requiere JWT + verificar que req.user.id es el host de la propiedad (ownershipMiddleware). Recibe: { property_id, dates: ['2026-07-01','2026-07-02',...], reason: 'host_block' }. Validar que dates es un array no vacío de strings en formato YYYY-MM-DD. Por cada fecha: verificar que no existe ya un registro para esa fecha (ignorar si ya está bloqueada, no dar error). Hacer INSERT masivo con Model.bulkCreate(). Devolver 201 { created: N, skipped: M } donde N es las insertadas y M las ya existentes.
+3
+DELETE /availability/:id — Desbloquear fecha
+Requiere JWT + ownership de la propiedad. Buscar el registro por id. Si no existe: 404. Si reason='reservation': responder 403 { message: 'No puedes desbloquear una fecha con reserva confirmada' }. Si reason='host_block': eliminar el registro. Devolver 200 { message: 'Fecha desbloqueada' }.
+4
+Validación de solapamiento al crear reserva
+Aunque esto se usa principalmente en US-15 (reservaciones), preparar aquí la función helper: checkAvailability(propertyId, checkIn, checkOut) → boolean. Recorre las fechas del rango y verifica que ninguna esté en la tabla availability. Esta función se importará en el controlador de reservaciones en el Sprint 4.
+5
+Inserción masiva eficiente
+Para un rango de 30 días, el frontend envía 30 fechas. Usar Model.bulkCreate() con ignoreDuplicates: true (MySQL: INSERT IGNORE). Esto inserta todas las fechas que no existen y silenciosamente ignora las que ya están bloqueadas, sin necesidad de verificar una por una antes de insertar.
+6
+Pruebas
+GET /availability/1 → array de fechas bloqueadas. POST con rango de 7 fechas → 201 { created:7, skipped:0 }. POST con 3 fechas donde 1 ya existe → 201 { created:2, skipped:1 }. DELETE de fecha host_block → 200. DELETE de fecha reservation → 403. DELETE de id inexistente → 404.
+
+✅  Criterios de Aceptación (DoD)
+☐  GET /availability/:propertyId devuelve todas las fechas bloqueadas con reason y relación a reservation
+☐  POST /availability acepta array de fechas — bulkCreate con ignoreDuplicates:true
+☐  Respuesta POST incluye { created: N, skipped: M }
+☐  DELETE /availability/:id — 403 si reason='reservation', 200 si host_block
+☐  Función helper checkAvailability(propertyId, checkIn, checkOut) creada y exportada
+☐  Pruebas de todos los casos edge (duplicados, reservation block, 404)
+🔌  Endpoints
+→  GET    /availability/:propertyId → 200 { blockedDates[] }
+→  POST   /availability → 201 { created, skipped }
+→  DELETE /availability/:id → 200 | 403 | 404
+
+🗄️  Tablas de BD
+◈  availability — SELECT, INSERT (bulkCreate), DELETE
+◈  reservations — include para fechas con reason='reservation'
+
+📦  Librerías
+◉  date-fns o dayjs — validar formato de fechas recibidas
+
+⚠  Notas y dependencias:  EN CURSO — vence el 11 Jun. La función helper checkAvailability es clave para el Sprint 4 (reservaciones). Dejarla bien probada.
+
+
+
+US-12 — FE  Página de detalle de propiedad — galería, amenidades, mapa, reseñas
+⚡  ARRANCA HOY (9 Jun) — 5 días
+👤 Fernely Flores   ·   Área: Frontend   ·   📅 09 Jun → 13 Jun   ·   5 Story Points
+
+
+¿Qué es esta tarea?
+Página completa de detalle de una propiedad accesible desde el mapa (botón 'Ver propiedad' del popup) y desde la lista lateral. Muestra toda la información de la propiedad: galería de fotos con lightbox, descripción, amenidades con íconos, mapa de ubicación embed, datos del anfitrión, y sección de reseñas (que en este sprint mostrará 'Sin reseñas aún'). Panel lateral con el widget de reserva (precios y selector de fechas — lógica completa en Sprint 4).
+
+📋  Pasos a seguir — qué hacer exactamente
+1
+Layout de la página /properties/:id
+Layout de dos columnas en desktop: columna izquierda (70%) con toda la info, columna derecha (30%) con el widget de reserva fijo (sticky). En mobile: columna única con el widget al final o como bottom bar. Cargar la propiedad con GET /properties/:id al montar. Estado de loading con skeleton mientras carga.
+2
+Galería de fotos con lightbox
+Mostrar la foto de portada grande arriba y un grid de 4 miniaturas a la derecha (estilo Airbnb). Botón 'Ver todas las fotos' que abre un lightbox/modal con todas las fotos en carrusel. Usar yet-another-react-lightbox o react-image-gallery. Gestos swipe en mobile.
+3
+Sección de información
+Título de la propiedad, tipo, ciudad, país. Datos rápidos: máx huéspedes, habitaciones, baños (con íconos). Descripción completa con 'Ver más / Ver menos' si supera 300 caracteres. Datos del anfitrión: foto, nombre, fecha de registro ('Anfitrión desde mayo 2026'), badge de 'Identidad verificada' si identity_status='verified'.
+4
+Amenidades con íconos
+Leer el array amenities de la propiedad. Por cada amenidad mostrar su ícono y nombre (mismo array de íconos del formulario de publicación). Mostrar máximo 6 en vista normal, botón 'Ver las X amenidades' que expande la lista completa.
+5
+Mapa embed de ubicación
+Mostrar un MapContainer de Leaflet pequeño (no interactivo — scrollWheelZoom=false, dragging=false) centrado en lat/lng de la propiedad, con un marcador. Al hacer clic en el mapa: abrir en Google Maps en nueva pestaña. Mostrar la dirección debajo del mapa.
+6
+Widget de reserva (lado derecho)
+Precio por noche, selector de fechas check-in/check-out (react-datepicker), contador de huéspedes. Calcular y mostrar: subtotal (noches × precio), tarifa de plataforma (12%), total. Botón 'Reservar' — en este sprint: deshabilitar con tooltip 'Próximamente' (la lógica real va en Sprint 4 US-15). Si el usuario no está logueado: botón 'Inicia sesión para reservar'.
+7
+Sección de reseñas
+Llamar GET /reviews?propertyId=:id (aunque en este sprint no hay reseñas reales aún). Si no hay reseñas: ilustración + 'Esta propiedad aún no tiene reseñas. ¡Sé el primero!'. Si hay (en sprints futuros): mostrar rating promedio con estrellas y lista de comentarios con foto y nombre del huésped.
+
+✅  Criterios de Aceptación (DoD)
+☐  Página /properties/:id carga con skeleton y muestra todos los datos de la propiedad
+☐  Galería de fotos con foto principal + 4 miniaturas + lightbox al hacer clic
+☐  Sección de información: título, tipo, capacidad, descripción con 'Ver más'
+☐  Amenidades con íconos — máx 6 visible + botón expandir
+☐  Mapa embed no interactivo con marcador — clic abre Google Maps
+☐  Widget de reserva: precio, fechas, huéspedes, cálculo de total, botón 'Reservar' (deshabilitado Sprint 3)
+☐  Sección de reseñas — 'Sin reseñas aún' si no hay
+☐  Responsivo — mobile: columna única con widget al final
+🔌  Endpoints
+→  GET /properties/:id → { property, photos[], host, amenities[], house_rules }
+→  GET /reviews?propertyId=:id → { reviews[], avgRating } (puede devolver vacío en Sprint 3)
+
+🗄️  Tablas de BD
+No toca BD directamente
+
+📦  Librerías
+◉  yet-another-react-lightbox — galería con lightbox
+◉  react-leaflet — mapa embed de ubicación
+◉  react-datepicker — selector de fechas en widget de reserva
+
+⚠  Notas y dependencias:  ARRANCA HOY. Puede desarrollarse en paralelo con US-13 FE. Fernely tiene ambas tareas esta semana — organizar: terminar US-13 FE mañana martes y dedicar miércoles-viernes a US-12 FE.
+
+
+
+US-12 — BE  Endpoint GET /properties/:id — relaciones fotos, reseñas, amenidades
+⚡  ARRANCA HOY (9 Jun) — 5 días
+👤 Carlos Poxtan   ·   Área: Backend   ·   📅 09 Jun → 13 Jun   ·   5 Story Points
+
+
+¿Qué es esta tarea?
+El endpoint GET /properties/:id ya existe del Sprint 2, pero necesita enriquecerse para la página de detalle. Se deben incluir todas las relaciones necesarias: todas las fotos ordenadas, datos completos del anfitrión (sin password), amenidades, y reseñas con datos del revisor. Todo en una sola llamada para que la página de detalle cargue rápido.
+
+📋  Pasos a seguir — qué hacer exactamente
+1
+Enriquecer el include de Sequelize
+Actualizar el findOne del GET /properties/:id para incluir: photos (todas, ordenadas por order_index ASC), host (user: id, first_name, last_name, avatar_url, identity_status, created_at — excluir password_hash con attributes), y en este sprint dejar reviews como array vacío [] para no bloquear el frontend.
+2
+Incluir amenidades parseadas
+El campo amenities ya es DataTypes.JSON — Sequelize lo devuelve como array. Verificar que en la respuesta llega como array JavaScript (no como string). Si por alguna razón llega como string, hacer JSON.parse() en el controlador antes de responder.
+3
+Endpoint de reseñas GET /reviews
+Crear GET /reviews con query param propertyId: SELECT * FROM reviews WHERE property_id = :propertyId AND type = 'guest_to_property' ORDER BY created_at DESC. Include: reviewer (first_name, last_name, avatar_url). Devolver { reviews: [], avgRating: null, totalReviews: 0 } si no hay reseñas. En Sprint 3 normalmente no habrá datos, pero el endpoint debe existir y funcionar.
+4
+Calcular rating promedio
+En la misma query de reviews: calcular AVG(rating) de las reseñas de esa propiedad. Devolver avgRating como número con 1 decimal (ej: 4.5) o null si no hay reseñas. Opcionalmente incluir el conteo por estrella: { 5: 10, 4: 3, 3: 1, 2: 0, 1: 0 } para mostrar el histograma de rating en el Sprint 6.
+5
+Optimizar la respuesta
+Revisar los atributos que se devuelven — no incluir campos internos innecesarios (password_hash, reset_token, stripe_account_id del host). Usar la opción attributes: { exclude: ['password_hash','reset_token','stripe_account_id'] } en el include del host. La respuesta final debe ser limpia y tener solo lo que el frontend necesita.
+6
+Pruebas del endpoint enriquecido
+Probar con una propiedad que tenga fotos, host con identity_status='verified', y sin reseñas. Verificar: photos viene ordenado por order_index, host no tiene password_hash, amenities es array, reviews es array vacío, avgRating es null. Verificar tiempo de respuesta < 300ms.
+
+✅  Criterios de Aceptación (DoD)
+☐  GET /properties/:id devuelve photos[] ordenadas por order_index ASC
+☐  Host incluido sin password_hash, con identity_status y created_at
+☐  amenities devuelto como array JavaScript (no string JSON)
+☐  GET /reviews?propertyId=:id funciona y devuelve { reviews[], avgRating, totalReviews }
+☐  avgRating calculado con AVG(rating) — null si no hay reseñas
+☐  Respuesta limpia — sin campos sensibles del host
+☐  Tiempo de respuesta < 300ms con un include de 4 relaciones
+🔌  Endpoints
+→  GET /properties/:id → 200 { property, photos[], host, amenities[], avgRating }
+→  GET /reviews?propertyId=:id → 200 { reviews[], avgRating, totalReviews }
+
+🗄️  Tablas de BD
+◈  properties — findOne con múltiples includes
+◈  property_photos — include ordenado por order_index
+◈  users — include del host con attributes exclude
+◈  reviews — query con AVG(rating)
+
+📦  Librerías
+◉  sequelize — includes anidados con attributes y order
+
+⚠  Notas y dependencias:  ARRANCA HOY. La base ya existe del Sprint 2 — es enriquecer el include y agregar GET /reviews. Tenerlo en staging antes del miércoles 11 para que Fernely pueda integrar la página de detalle.
+
+
+
+US-14 — FE  Vista de disponibilidad en tiempo real al seleccionar fechas
+⏳  Arranca 11 Jun (jueves)
+👤 Fernely Flores   ·   Área: Frontend   ·   📅 11 Jun → 13 Jun   ·   5 Story Points
+
+
+¿Qué es esta tarea?
+En el widget de reserva de la página de detalle, al seleccionar fechas check-in/check-out, consultar en tiempo real si esas fechas están disponibles para esa propiedad. Mostrar feedback inmediato al usuario: fechas disponibles (verde, puede reservar) o fechas bloqueadas (rojo, debe elegir otras). Deshabilitar las fechas bloqueadas directamente en el calendario del widget.
+
+📋  Pasos a seguir — qué hacer exactamente
+1
+Deshabilitar fechas bloqueadas en el datepicker
+Al cargar la página de detalle, hacer GET /availability/:propertyId para obtener todas las fechas bloqueadas. Pasarlas como excludeDates al react-datepicker del widget de reserva. El usuario no podrá seleccionar esas fechas directamente. Las fechas bloqueadas aparecen tachadas o en gris en el calendario.
+2
+Validación de rango al seleccionar
+Al seleccionar check-in y check-out, verificar que ningún día del rango esté en la lista de fechas bloqueadas (incluyendo los días intermedios, no solo el inicio y fin). Si hay un día bloqueado dentro del rango: mostrar mensaje de error 'Las fechas seleccionadas incluyen días no disponibles' y deshabilitar el botón de reservar.
+3
+Consulta en tiempo real — GET /availability/:propertyId/check
+Adicionalmente, al completar la selección del rango, hacer GET /availability/:propertyId/check?checkIn=YYYY-MM-DD&checkOut=YYYY-MM-DD para que el backend confirme la disponibilidad. Mostrar: spinner breve mientras se consulta, luego '✓ Fechas disponibles' en verde o '✗ Fechas no disponibles' en rojo.
+4
+Cálculo de precio en tiempo real
+Al seleccionar un rango válido y disponible: calcular automáticamente noches = diferencia de días entre checkOut y checkIn. Actualizar en el widget: '5 noches × $800 = $4,000', tarifa de plataforma (12%): $480, Total: $4,480. Todo en tiempo real sin hacer clic en ningún botón.
+5
+Estado del botón Reservar
+El botón 'Reservar' está: deshabilitado (gris) si no hay fechas seleccionadas, deshabilitado (rojo) si las fechas no están disponibles, habilitado (morado) si las fechas están disponibles y el rango es válido. En Sprint 3 el botón habilitado muestra 'Próximamente' — la lógica real va en US-15 del Sprint 4.
+
+✅  Criterios de Aceptación (DoD)
+☐  Fechas bloqueadas deshabilitadas en el datepicker del widget — no seleccionables
+☐  Validación de rango completo — detecta días bloqueados en medio del rango
+☐  GET /availability/:propertyId/check confirma disponibilidad — feedback verde/rojo
+☐  Cálculo de precio en tiempo real: noches × precio + comisión + total
+☐  Botón Reservar con 3 estados: sin fechas / no disponible / disponible
+☐  Funciona en staging antes del 13 Jun (sábado)
+🔌  Endpoints
+→  GET /availability/:propertyId → { blockedDates[] } — al cargar la página
+→  GET /availability/:propertyId/check?checkIn=&checkOut= → { available: bool, conflictDates[] }
+
+🗄️  Tablas de BD
+No toca BD directamente
+
+📦  Librerías
+◉  react-datepicker — excludeDates para fechas bloqueadas
+◉  date-fns — calcular número de noches
+
+⚠  Notas y dependencias:  Arranca el jueves 11 Jun — 3 días hasta el Sprint Review. Depende de US-13 API para tener el endpoint /check listo. Coordinar con Álvaro.
+
+
+
+US-14 — API  GET /availability/:propertyId con validación de solapamiento
+⏳  Arranca 11 Jun (jueves)
+👤 Álvaro Novelo   ·   Área: API/Int.   ·   📅 11 Jun → 13 Jun   ·   5 Story Points
+
+
+¿Qué es esta tarea?
+Endpoint de consulta de disponibilidad que verifica si un rango de fechas está libre para una propiedad, detectando solapamientos con fechas ya bloqueadas en la tabla availability. Devuelve un booleano de disponibilidad y la lista de fechas en conflicto para que el frontend pueda mostrarlas al usuario.
+
+📋  Pasos a seguir — qué hacer exactamente
+1
+GET /availability/:propertyId/check
+Nuevo endpoint que recibe checkIn y checkOut como query params. Validar que son fechas válidas en formato YYYY-MM-DD y que checkOut > checkIn. Generar el array de todas las fechas del rango (día por día, sin incluir el checkOut que es el día de salida). Buscar en availability si alguna de esas fechas está bloqueada para esa propiedad.
+2
+Lógica de solapamiento
+Query: SELECT blocked_date FROM availability WHERE property_id = :propertyId AND blocked_date IN (:fechasDelRango). Si el resultado está vacío: disponible. Si hay fechas: no disponible. Devolver: { available: true/false, conflictDates: ['2026-07-05','2026-07-06'] }. Las conflictDates permiten al frontend resaltarlas visualmente.
+3
+Optimización de la query
+Usar Op.in con el array de fechas del rango en Sequelize. Para rangos largos (1-2 meses), el array puede tener 60+ fechas — usar Op.between en la query SQL es más eficiente: WHERE property_id = :id AND blocked_date BETWEEN :checkIn AND :checkOut. Comparar ambos enfoques y usar el más claro.
+4
+Integración con la función helper
+Reutilizar la función helper checkAvailability(propertyId, checkIn, checkOut) creada en US-13 API. Si ya está implementada, este endpoint es solo un wrapper que llama esa función y da formato a la respuesta HTTP.
+5
+Pruebas
+Probar con: rango completamente libre (available:true, conflictDates:[]). Rango con 1 día bloqueado (available:false, conflictDates:['2026-07-05']). Rango con varios días bloqueados. checkOut <= checkIn (debe dar 400). Propiedad que no existe (404).
+
+✅  Criterios de Aceptación (DoD)
+☐  GET /availability/:propertyId/check?checkIn=&checkOut= responde { available, conflictDates[] }
+☐  available:true cuando ninguna fecha del rango está bloqueada
+☐  available:false con lista de conflictDates cuando hay solapamiento
+☐  400 si checkOut <= checkIn o fechas en formato inválido
+☐  404 si la propiedad no existe
+☐  Reutiliza la función helper checkAvailability del US-13 API
+☐  Pruebas de todos los casos: libre, 1 conflicto, múltiples conflictos, fechas inválidas
+🔌  Endpoints
+→  GET /availability/:propertyId/check?checkIn=YYYY-MM-DD&checkOut=YYYY-MM-DD → 200 { available, conflictDates[] } | 400 | 404
+
+🗄️  Tablas de BD
+◈  availability — SELECT con WHERE IN o BETWEEN para el rango de fechas
+
+📦  Librerías
+◉  date-fns o dayjs — generar array de fechas del rango
+
+⚠  Notas y dependencias:  Arranca el jueves 11 Jun. Si US-13 API está bien, esta tarea es rápida (3 SP reales aunque marcada como 5 SP). Tenerla lista el viernes para que Fernely pueda integrar US-14 FE el mismo viernes.
+
+🎯  ENTREGABLE DEL SPRINT 3 — Viernes 13 de Junio
+Demo en staging — flujo completo:
+1.  Huésped entra a la página de búsqueda y ve el mapa Leaflet con marcadores de propiedades
+2.  Filtra por fechas check-in/check-out — propiedades no disponibles desaparecen del mapa
+3.  Aplica filtros avanzados: precio, tipo de propiedad, número de huéspedes
+4.  Hace clic en un marcador → popup con foto y precio → 'Ver propiedad' → página de detalle
+5.  En el detalle: galería de fotos, amenidades, mapa embed, datos del anfitrión
+6.  Selecciona fechas en el widget de reserva → ve en tiempo real si están disponibles
+7.  Anfitrión en su panel bloquea/desbloquea fechas en el calendario de disponibilidad

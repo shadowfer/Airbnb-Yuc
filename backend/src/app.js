@@ -3,7 +3,9 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const path = require('path');
 const authRoutes = require('./routes/authRoutes');
+const propertyRoutes = require('./routes/propertyRoutes');
 const errorHandler = require('./middlewares/errorHandler');
 
 const app = express();
@@ -19,9 +21,19 @@ app.use(cors({
 }));
 
 
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
 
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
+const identityController = require('./controllers/identityController');
+
+app.post(
+  '/api/webhooks/stripe',
+  express.raw({ type: 'application/json' }),
+  identityController.handleStripeWebhook
+);
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -39,6 +51,9 @@ app.get('/api/health', (req, res) => {
 
 
 app.use('/api/auth', authRoutes);
+app.use('/api/properties', propertyRoutes);
+app.use('/api/availability', require('./routes/availabilityRoutes'));
+app.use('/api/reviews', require('./routes/reviewRoutes'));
 
 
 

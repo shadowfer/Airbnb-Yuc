@@ -42,9 +42,18 @@ const Navbar = () => {
                     <p className="text-dark-400 text-xs">{roleLabel}</p>
                   </div>
                 </div>
+                <Link to="/search" className="text-dark-600 hover:text-primary-500 font-medium transition-colors">
+                  Buscar
+                </Link>
                 <Link to="/dashboard" className="text-dark-600 hover:text-primary-500 font-medium transition-colors">
                   Panel
                 </Link>
+                {user?.role === 'host' && (
+                  <Link to="/host/properties/create" className="text-primary-500 hover:text-primary-600 font-semibold transition-colors bg-primary-50 px-3 py-1.5 rounded-xl border border-primary-100 flex items-center gap-1 text-sm">
+                    <span>🏡</span>
+                    <span>Publicar</span>
+                  </Link>
+                )}
                 <button
                   onClick={handleLogout}
                   className="btn-secondary text-sm py-2"
@@ -104,6 +113,13 @@ const Navbar = () => {
                     <p className="text-dark-400 text-sm">{roleLabel}</p>
                   </div>
                 </div>
+                <Link
+                  to="/search"
+                  className="block px-3 py-2 rounded-lg text-dark-600 hover:bg-dark-50 font-medium"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Buscar
+                </Link>
                 <Link
                   to="/dashboard"
                   className="block px-3 py-2 rounded-lg text-dark-600 hover:bg-dark-50 font-medium"
