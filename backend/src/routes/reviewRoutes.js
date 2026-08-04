@@ -1,8 +1,10 @@
 const express = require('express');
 const router = express.Router();
 
-const { getPropertyReviews } = require('../controllers/reviewController');
+const authMiddleware = require('../middlewares/authMiddleware');
+const { getPropertyReviews, createReview } = require('../controllers/reviewController');
 
 router.get('/', getPropertyReviews);
+router.post('/', authMiddleware, createReview);
 
 module.exports = router;

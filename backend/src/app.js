@@ -54,6 +54,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/properties', propertyRoutes);
 app.use('/api/availability', require('./routes/availabilityRoutes'));
 app.use('/api/reviews', require('./routes/reviewRoutes'));
+app.use('/api/reservations', require('./routes/reservationRoutes'));
+
 
 
 

@@ -12,6 +12,8 @@ import CreateProperty from './pages/CreateProperty';
 import Search from './pages/Search';
 import PropertyDetail from './pages/PropertyDetail';
 import AvailabilityCalendar from './pages/AvailabilityCalendar';
+import MyReservations from './pages/MyReservations';
+import HostReservations from './pages/HostReservations';
 
 function App() {
   return (
@@ -43,6 +45,12 @@ function App() {
               } />
               <Route path="/host/properties/:id/availability" element={
                 <ProtectedRoute><AvailabilityCalendar /></ProtectedRoute>
+              } />
+              <Route path="/reservations/my" element={
+                <ProtectedRoute><MyReservations /></ProtectedRoute>
+              } />
+              <Route path="/host/reservations" element={
+                <ProtectedRoute><HostReservations /></ProtectedRoute>
               } />
               <Route path="*" element={<Navigate to="/login" replace />} />
             </Routes>

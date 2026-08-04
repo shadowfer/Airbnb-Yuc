@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
   MapContainer,
@@ -37,10 +37,16 @@ import {
   Sun,
   Flower2,
   Dog,
+  Loader2,
+  CreditCard,
+  CheckCircle2,
+  Lock,
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const PropertyDetail = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [property, setProperty] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -56,9 +62,17 @@ const PropertyDetail = () => {
 
   // Availability state
   const [blockedDates, setBlockedDates] = useState([]);
-  const [availLoading, setAvailLoading] = useState(false);
   const [availStatus, setAvailStatus] = useState('idle'); // 'idle', 'checking', 'available', 'unavailable'
   const [validationError, setValidationError] = useState(null);
+
+  // Reviews state
+  const [reviews, setReviews] = useState([]);
+  const [avgRating, setAvgRating] = useState(null);
+
+  // Checkout modal state
+  const [checkoutModalOpen, setCheckoutModalOpen] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('card');
+  const [bookingLoading, setBookingLoading] = useState(false);
 
   // Fetch blocked dates on mount
   useEffect(() => {
@@ -66,17 +80,30 @@ const PropertyDetail = () => {
       try {
         const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
         const res = await axios.get(`${API_URL}/availability/${id}`);
-        setBlockedDates(res.data.blockedDates || res.data.data.blockedDates || []);
+        setBlockedDates(res.data.blockedDates || res.data.data?.blockedDates || []);
       } catch (err) {
         console.error('Error fetching availability:', err);
       }
     };
+
+    const fetchReviews = async () => {
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        const res = await axios.get(`${API_URL}/reviews?propertyId=${id}`);
+        setReviews(res.data.reviews || []);
+        setAvgRating(res.data.avgRating || null);
+      } catch (err) {
+        console.error('Error fetching reviews:', err);
+      }
+    };
+
     if (id) {
       fetchAvailability();
+      fetchReviews();
     }
   }, [id]);
 
-  // Real-time checking logic when dates change
+  // Real-time availability checking logic when dates change
   useEffect(() => {
     if (!checkIn || !checkOut) {
       setAvailStatus('idle');
@@ -93,11 +120,11 @@ const PropertyDetail = () => {
       return;
     }
 
-    // Client-side quick overlap validation: check dates range day-by-day (excluding checkOut day)
+    // Client-side quick overlap check
     const datesToCheck = [];
     let current = new Date(inDate);
     const last = new Date(outDate);
-    
+
     while (current < last) {
       const y = current.getFullYear();
       const m = String(current.getMonth() + 1).padStart(2, '0');
@@ -106,7 +133,6 @@ const PropertyDetail = () => {
       current.setDate(current.getDate() + 1);
     }
 
-    // Compare with blockedDates retrieved
     const hasOverlap = datesToCheck.some((dStr) =>
       blockedDates.some((b) => (b.blockedDate || b.blocked_date || '').split('T')[0] === dStr)
     );
@@ -117,7 +143,7 @@ const PropertyDetail = () => {
       return;
     }
 
-    // Call API /check for definitive confirmation
+    // Server-side check
     const checkAvailabilityAPI = async () => {
       setAvailStatus('checking');
       setValidationError(null);
@@ -141,7 +167,7 @@ const PropertyDetail = () => {
 
     const timer = setTimeout(() => {
       checkAvailabilityAPI();
-    }, 450); // Debounce to prevent rapid calls on typing
+    }, 400);
 
     return () => clearTimeout(timer);
   }, [checkIn, checkOut, blockedDates, id]);
@@ -160,7 +186,7 @@ const PropertyDetail = () => {
             Authorization: `Bearer ${token}`,
           },
         });
-        setProperty(res.data.property || res.data.data.property);
+        setProperty(res.data.property || res.data.data?.property);
       } catch (err) {
         setError('No pudimos cargar los detalles de este hospedaje.');
       } finally {
@@ -171,7 +197,7 @@ const PropertyDetail = () => {
     fetchPropertyDetail();
   }, [id]);
 
-  // Icons mapping for amenities
+  // Amenity icon mapping
   const getAmenityIcon = (amenityId) => {
     const mapping = {
       wifi: Wifi,
@@ -202,7 +228,7 @@ const PropertyDetail = () => {
     return mapping[typeId] || LayoutGrid;
   };
 
-  // Calculations
+  // Pricing Summary calculation
   const bookingSummary = useMemo(() => {
     if (!checkIn || !checkOut || !property) return null;
 
@@ -215,7 +241,7 @@ const PropertyDetail = () => {
     const price = parseFloat(property.pricePerNight);
     const subtotal = nights * price;
     const fee = parseFloat((subtotal * 0.12).toFixed(2));
-    const total = subtotal + fee;
+    const total = parseFloat((subtotal + fee).toFixed(2));
 
     return {
       nights,
@@ -235,6 +261,37 @@ const PropertyDetail = () => {
     setActivePhotoIdx((prev) => (prev - 1 + property.photos.length) % property.photos.length);
   };
 
+  const handleConfirmReservation = async () => {
+    if (!bookingSummary || availStatus !== 'available') return;
+
+    setBookingLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+      const res = await axios.post(
+        `${API_URL}/reservations`,
+        {
+          propertyId: id,
+          checkIn,
+          checkOut,
+          guestsCount,
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      toast.success('¡Reservación realizada con éxito!');
+      setCheckoutModalOpen(false);
+      navigate('/reservations/my');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Error al procesar la reservación.');
+    } finally {
+      setBookingLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-mesh flex flex-col items-center justify-center space-y-4">
@@ -247,160 +304,178 @@ const PropertyDetail = () => {
   if (error || !property) {
     return (
       <div className="min-h-screen bg-mesh flex items-center justify-center p-4">
-        <div className="glass-card max-w-md text-center p-8 shadow-xl">
-          <span className="text-4xl">⚠️</span>
-          <h2 className="text-xl font-bold text-dark-800 mt-4 mb-2">Error de carga</h2>
-          <p className="text-dark-500 text-sm mb-6">{error || 'No se encontró la propiedad.'}</p>
-          <Link to="/search" className="btn-primary py-2.5 px-6">
-            Volver a la Búsqueda
+        <div className="glass-card max-w-md text-center p-8 shadow-xl space-y-4">
+          <h2 className="text-2xl font-bold text-dark-900">Ups, ocurrió un problema</h2>
+          <p className="text-dark-500 text-sm">{error || 'Propiedad no encontrada.'}</p>
+          <Link to="/search" className="btn-primary py-2 px-6 text-sm inline-block">
+            Volver a la búsqueda
           </Link>
         </div>
       </div>
     );
   }
 
+  const primaryPhoto =
+    property.photos?.[0]?.url ||
+    'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1200&q=80';
   const photosList = property.photos || [];
-  const primaryPhoto = photosList[0]?.url || 'https://via.placeholder.com/800x600?text=Sin+Foto';
-  const sidePhotos = photosList.slice(1, 5);
-
   const TypeIcon = getPropertyTypeIcon(property.propertyType);
 
   return (
-    <div className="min-h-screen bg-mesh py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-6xl mx-auto">
-        {/* Back Link */}
+    <div className="min-h-screen bg-mesh pb-16">
+      {/* Header breadcrumb & Title */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-3">
         <Link
           to="/search"
-          className="inline-flex items-center gap-2 text-dark-500 hover:text-primary-500 font-semibold transition-colors mb-6 group"
+          className="inline-flex items-center gap-2 text-sm font-semibold text-dark-500 hover:text-primary-600 transition-colors"
         >
-          <ArrowLeft className="w-5 h-5 transform group-hover:-translate-x-1 transition-transform" />
-          <span>Volver a la búsqueda</span>
+          <ArrowLeft className="w-4 h-4" />
+          <span>Volver al mapa de búsqueda</span>
         </Link>
 
-        {/* Title Block */}
-        <div className="mb-6">
-          <h1 className="text-3xl font-display font-extrabold text-dark-900 tracking-tight leading-tight">
-            {property.title}
-          </h1>
-          <p className="text-dark-500 text-sm mt-1.5 flex items-center gap-1">
-            <MapPin className="w-4 h-4 text-primary-500 shrink-0" />
-            <span>
-              {property.address}, {property.city}, {property.state}, {property.country}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+          <div>
+            <span className="text-xs font-bold uppercase tracking-wider text-primary-600 bg-primary-50 px-2.5 py-1 rounded-full border border-primary-100">
+              {property.propertyType}
             </span>
-          </p>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-dark-900 tracking-tight mt-1">
+              {property.title}
+            </h1>
+            <p className="text-dark-500 text-sm flex items-center gap-1.5 mt-1 font-medium">
+              <MapPin className="w-4 h-4 text-primary-500 shrink-0" />
+              {property.address}, {property.city}, {property.country}
+            </p>
+          </div>
         </div>
+      </div>
 
-        {/* Photos Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 rounded-3xl overflow-hidden border border-dark-200 bg-white shadow-md mb-8">
-          {/* Main big cover */}
-          <div className="md:col-span-2 relative aspect-[4/3] overflow-hidden group cursor-pointer" onClick={() => { setActivePhotoIdx(0); setLightboxOpen(true); }}>
+      {/* Photo Gallery Grid */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 my-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 h-[320px] sm:h-[420px] rounded-3xl overflow-hidden shadow-2xl relative">
+          {/* Main big photo */}
+          <div
+            onClick={() => {
+              setActivePhotoIdx(0);
+              setLightboxOpen(true);
+            }}
+            className="md:col-span-2 h-full cursor-pointer relative group overflow-hidden"
+          >
             <img
               src={primaryPhoto}
-              alt="Foto principal"
-              className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-500"
+              alt={property.title}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             />
-            {photosList.length > 5 && (
-              <button
-                type="button"
-                className="absolute bottom-4 right-4 bg-black/75 text-white text-xs font-bold px-4 py-2 rounded-xl backdrop-blur-md hover:bg-black transition-colors"
-              >
-                Ver todas las fotos ({photosList.length})
-              </button>
-            )}
+            <div className="absolute inset-0 bg-dark-900/10 group-hover:bg-dark-900/0 transition-colors" />
           </div>
 
-          {/* Right grid */}
-          <div className="md:col-span-2 grid grid-cols-2 gap-3 p-3 bg-white">
-            {sidePhotos.map((p, idx) => (
+          {/* Secondary mini photos */}
+          <div className="hidden md:grid md:col-span-2 grid-cols-2 gap-3 h-full">
+            {photosList.slice(1, 5).map((photo, idx) => (
               <div
-                key={p.id}
-                onClick={() => { setActivePhotoIdx(idx + 1); setLightboxOpen(true); }}
-                className="relative aspect-[4/3] rounded-xl overflow-hidden group cursor-pointer border border-dark-100 bg-dark-50"
+                key={photo.id || idx}
+                onClick={() => {
+                  setActivePhotoIdx(idx + 1);
+                  setLightboxOpen(true);
+                }}
+                className="h-full cursor-pointer relative group overflow-hidden"
               >
                 <img
-                  src={p.url}
-                  alt={`Miniatura ${idx + 1}`}
+                  src={photo.url}
+                  alt={`Foto ${idx + 2}`}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 />
-              </div>
-            ))}
-            {/* Fallback place holders if < 5 photos */}
-            {Array.from({ length: Math.max(0, 4 - sidePhotos.length) }).map((_, idx) => (
-              <div
-                key={`placeholder_${idx}`}
-                className="aspect-[4/3] rounded-xl bg-dark-50 border-2 border-dashed border-dark-200 flex items-center justify-center text-dark-300 font-semibold text-xs"
-              >
-                Hospedaje 🏡
+                <div className="absolute inset-0 bg-dark-900/10 group-hover:bg-dark-900/0 transition-colors" />
               </div>
             ))}
           </div>
-        </div>
 
-        {/* Layout details 2 columns */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-          {/* Left: General Info */}
+          <button
+            onClick={() => {
+              setActivePhotoIdx(0);
+              setLightboxOpen(true);
+            }}
+            className="absolute bottom-4 right-4 bg-white/90 backdrop-blur-md text-dark-800 font-bold text-xs py-2 px-4 rounded-xl shadow-lg hover:bg-white transition-all flex items-center gap-2"
+          >
+            <LayoutGrid className="w-4 h-4 text-primary-600" />
+            <span>Ver todas las fotos ({photosList.length})</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content & Sidebar */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left 2 columns: Info */}
           <div className="lg:col-span-2 space-y-8">
-            {/* Host info and stats */}
-            <div className="glass-card p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-xl font-bold shadow-md">
-                  {property.host?.firstName?.[0]?.toUpperCase()}{property.host?.lastName?.[0]?.toUpperCase()}
-                </div>
+            {/* Host Banner & Key Stats */}
+            <div className="bg-white p-6 rounded-3xl border border-dark-100 shadow-sm space-y-6">
+              <div className="flex items-center justify-between border-b border-dark-100 pb-6">
                 <div>
-                  <h3 className="font-bold text-dark-800 text-lg">
-                    Hospedado por {property.host?.firstName}
-                  </h3>
-                  <p className="text-xs text-dark-400 font-semibold mt-0.5">
-                    Anfitrión desde {new Date(property.host?.createdAt).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+                  <h2 className="text-xl font-bold text-dark-900">
+                    Anfitrión: {property.host?.firstName} {property.host?.lastName}
+                  </h2>
+                  <p className="text-dark-500 text-xs mt-1 flex items-center gap-2">
+                    {property.host?.identityStatus === 'verified' && (
+                      <span className="badge badge-emerald inline-flex items-center gap-1">
+                        <ShieldCheck className="w-3.5 h-3.5" /> Identidad Verificada
+                      </span>
+                    )}
                   </p>
                 </div>
+                {property.host?.avatarUrl ? (
+                  <img
+                    src={property.host.avatarUrl}
+                    alt={property.host.firstName}
+                    className="w-14 h-14 rounded-full object-cover border-2 border-primary-500"
+                  />
+                ) : (
+                  <div className="w-14 h-14 rounded-full bg-primary-100 text-primary-700 font-extrabold text-lg flex items-center justify-center border-2 border-primary-500">
+                    {property.host?.firstName?.[0]}
+                  </div>
+                )}
               </div>
 
-              {property.host?.identityStatus === 'verified' && (
-                <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-xs select-none">
-                  <ShieldCheck className="w-4 h-4 fill-emerald-100" />
-                  <span>Identidad Verificada</span>
+              {/* Specs */}
+              <div className="grid grid-cols-3 gap-4 text-center py-2">
+                <div className="p-3 rounded-2xl bg-dark-50/80 border border-dark-100">
+                  <Users className="w-6 h-6 text-primary-500 mx-auto mb-1" />
+                  <span className="text-xs text-dark-400 font-medium block">Capacidad</span>
+                  <span className="font-bold text-dark-800 text-sm">Hasta {property.maxGuests} huéspedes</span>
                 </div>
-              )}
+                <div className="p-3 rounded-2xl bg-dark-50/80 border border-dark-100">
+                  <Bed className="w-6 h-6 text-primary-500 mx-auto mb-1" />
+                  <span className="text-xs text-dark-400 font-medium block">Habitaciones</span>
+                  <span className="font-bold text-dark-800 text-sm">{property.bedrooms} hab.</span>
+                </div>
+                <div className="p-3 rounded-2xl bg-dark-50/80 border border-dark-100">
+                  <Bath className="w-6 h-6 text-primary-500 mx-auto mb-1" />
+                  <span className="text-xs text-dark-400 font-medium block">Baños</span>
+                  <span className="font-bold text-dark-800 text-sm">{property.bathrooms} baños</span>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div className="space-y-2 pt-2">
+                <h3 className="font-display font-bold text-dark-900 text-lg">Acerca de este lugar</h3>
+                <p className="text-dark-600 text-sm leading-relaxed whitespace-pre-line">
+                  {property.description}
+                </p>
+              </div>
             </div>
 
-            {/* Capacity specs */}
-            <div className="grid grid-cols-3 gap-4 text-center">
-              <div className="bg-white p-4 rounded-2xl border border-dark-100 shadow-sm flex flex-col items-center">
-                <Users className="w-6 h-6 text-primary-500 mb-1" />
-                <span className="text-sm font-bold text-dark-800">{property.maxGuests} huéspedes</span>
-              </div>
-              <div className="bg-white p-4 rounded-2xl border border-dark-100 shadow-sm flex flex-col items-center">
-                <Bed className="w-6 h-6 text-primary-500 mb-1" />
-                <span className="text-sm font-bold text-dark-800">{property.bedrooms} habitaciones</span>
-              </div>
-              <div className="bg-white p-4 rounded-2xl border border-dark-100 shadow-sm flex flex-col items-center">
-                <Bath className="w-6 h-6 text-primary-500 mb-1" />
-                <span className="text-sm font-bold text-dark-800">{property.bathrooms} baños</span>
-              </div>
-            </div>
-
-            {/* Description */}
-            <div className="bg-white p-6 rounded-3xl border border-dark-100 shadow-sm space-y-3">
-              <h3 className="font-display font-bold text-dark-900 text-lg">Acerca de este hospedaje</h3>
-              <p className="text-dark-600 text-sm leading-relaxed whitespace-pre-line">
-                {property.description}
-              </p>
-            </div>
-
-            {/* Amenities list */}
+            {/* Amenities */}
             {property.amenities && property.amenities.length > 0 && (
               <div className="bg-white p-6 rounded-3xl border border-dark-100 shadow-sm space-y-4">
-                <h3 className="font-display font-bold text-dark-900 text-lg">¿Qué ofrece este lugar?</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {property.amenities.map((a, idx) => {
+                <h3 className="font-display font-bold text-dark-900 text-lg">Lo que ofrece este lugar</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  {property.amenities.map((a) => {
                     const Icon = getAmenityIcon(a);
                     return (
-                      <div key={idx} className="flex items-center gap-3 text-dark-700">
-                        <div className="p-2 rounded-xl bg-dark-50 text-dark-500 border border-dark-100">
+                      <div key={a} className="flex items-center gap-3 p-3 rounded-2xl border border-dark-100 bg-dark-50/50">
+                        <div className="p-2 rounded-xl bg-white text-primary-600 shadow-sm border border-dark-100">
                           <Icon className="w-4 h-4" />
                         </div>
-                        <span className="text-sm font-semibold capitalize">{a}</span>
+                        <span className="text-sm font-semibold capitalize text-dark-800">{a}</span>
                       </div>
                     );
                   })}
@@ -426,12 +501,11 @@ const PropertyDetail = () => {
                   />
                   <Marker position={[parseFloat(property.lat), parseFloat(property.lng)]} />
                 </MapContainer>
-                {/* Click overlay to open in google maps */}
                 <a
                   href={`https://www.google.com/maps/search/?api=1&query=${property.lat},${property.lng}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="absolute bottom-3 right-3 bg-white/95 backdrop-blur-md border border-dark-200 rounded-xl px-3 py-1.5 text-xs font-bold text-dark-700 hover:text-primary-500 shadow-lg flex items-center gap-1.5 z-[1000] select-none transition-colors"
+                  className="absolute bottom-3 right-3 bg-white/95 backdrop-blur-md border border-dark-200 rounded-xl px-3 py-1.5 text-xs font-bold text-dark-700 hover:text-primary-500 shadow-lg flex items-center gap-1.5 z-[1000] transition-colors"
                 >
                   <span>Ver en Google Maps</span>
                   <ExternalLink className="w-3.5 h-3.5" />
@@ -439,21 +513,63 @@ const PropertyDetail = () => {
               </div>
             </div>
 
-            {/* Reviews list ("Sin reseñas aún") */}
+            {/* Reviews Section */}
             <div className="bg-white p-6 rounded-3xl border border-dark-100 shadow-sm space-y-4">
-              <h3 className="font-display font-bold text-dark-900 text-lg flex items-center gap-2">
-                <Star className="w-5 h-5 text-amber-400 fill-current" />
-                <span>Reseñas del hospedaje</span>
-              </h3>
-              <div className="text-center py-10 px-4 bg-dark-50/50 rounded-2xl border border-dark-100 border-dashed">
-                <span className="text-3xl mb-2 block">💬</span>
-                <p className="font-bold text-dark-800 text-sm">Este hospedaje aún no tiene reseñas</p>
-                <p className="text-dark-400 text-xs mt-1">¡Sé uno de los primeros huéspedes en dejar tu comentario!</p>
+              <div className="flex items-center justify-between">
+                <h3 className="font-display font-bold text-dark-900 text-lg flex items-center gap-2">
+                  <Star className="w-5 h-5 text-amber-400 fill-current" />
+                  <span>Reseñas de huéspedes</span>
+                </h3>
+                {avgRating && (
+                  <span className="badge badge-amber text-sm font-extrabold px-3 py-1">
+                    ★ {avgRating} ({reviews.length} {reviews.length === 1 ? 'reseña' : 'reseñas'})
+                  </span>
+                )}
               </div>
+
+              {reviews.length === 0 ? (
+                <div className="text-center py-10 px-4 bg-dark-50/50 rounded-2xl border border-dark-100 border-dashed">
+                  <span className="text-3xl mb-2 block">💬</span>
+                  <p className="font-bold text-dark-800 text-sm">Este hospedaje aún no tiene reseñas</p>
+                  <p className="text-dark-400 text-xs mt-1">¡Sé uno de los primeros huéspedes en reservar y evaluar!</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {reviews.map((rev) => (
+                    <div key={rev.id} className="p-4 rounded-2xl border border-dark-100 bg-dark-50/60 space-y-2">
+                      <div className="flex items-center gap-3">
+                        {rev.reviewer?.avatarUrl ? (
+                          <img
+                            src={rev.reviewer.avatarUrl}
+                            alt={rev.reviewer.firstName}
+                            className="w-10 h-10 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-primary-100 text-primary-700 font-bold text-sm flex items-center justify-center">
+                            {rev.reviewer?.firstName?.[0]}
+                          </div>
+                        )}
+                        <div>
+                          <h4 className="text-sm font-bold text-dark-900">
+                            {rev.reviewer?.firstName} {rev.reviewer?.lastName}
+                          </h4>
+                          <div className="flex items-center gap-1 text-xs text-amber-500 font-semibold">
+                            {'★'.repeat(rev.rating)}
+                            <span className="text-dark-400 font-normal ml-1">
+                              • {new Date(rev.createdAt).toLocaleDateString('es-MX')}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-xs text-dark-600 leading-relaxed italic">"{rev.comment}"</p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Right: Reservation Widget */}
+          {/* Right Column: Reservation Widget */}
           <div className="lg:col-span-1 lg:sticky lg:top-24">
             <div className="glass-card p-6 border border-dark-200/60 shadow-xl space-y-6">
               <div className="flex justify-between items-baseline">
@@ -551,19 +667,20 @@ const PropertyDetail = () => {
                 </div>
               ) : (
                 <div className="bg-dark-50 p-4 rounded-xl border border-dark-100 text-center text-xs text-dark-400 font-semibold leading-relaxed">
-                  {!checkIn || !checkOut 
-                    ? 'Ingresa tus fechas para ver el desglose de precios y tarifas de servicio.' 
-                    : availStatus === 'unavailable' 
-                    ? 'Corrige las fechas seleccionadas para ver las tarifas de servicio.' 
+                  {!checkIn || !checkOut
+                    ? 'Ingresa tus fechas para ver el desglose de precios.'
+                    : availStatus === 'unavailable'
+                    ? 'Corrige las fechas seleccionadas para ver el desglose.'
                     : 'Verificando precios...'}
                 </div>
               )}
 
-              {/* Booking Button (disabled/interactive based on availability in Sprint 3) */}
+              {/* Booking Button */}
               <div className="space-y-2">
                 <button
                   type="button"
                   disabled={availStatus !== 'available'}
+                  onClick={() => setCheckoutModalOpen(true)}
                   className={`w-full py-3.5 text-sm font-bold rounded-2xl shadow-lg transition-all active:scale-98 ${
                     availStatus === 'available'
                       ? 'bg-primary-500 hover:bg-primary-600 text-white shadow-primary-500/20 cursor-pointer'
@@ -572,23 +689,103 @@ const PropertyDetail = () => {
                       : 'bg-dark-200 text-dark-400 cursor-not-allowed opacity-60'
                   }`}
                 >
-                  {availStatus === 'available' ? 'Reservar (Próximamente)' : availStatus === 'unavailable' ? 'No Disponible' : 'Selecciona Fechas'}
+                  {availStatus === 'available' ? 'Reservar ahora' : availStatus === 'unavailable' ? 'No Disponible' : 'Selecciona Fechas'}
                 </button>
-                <p className="text-[10px] text-center text-dark-400 font-semibold mt-1">
-                  {availStatus === 'available' 
-                    ? 'Todavía no se te cobrará ningún importe. Lógica real en Sprint 4.'
-                    : 'Debes seleccionar fechas válidas y disponibles para proceder.'}
-                </p>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Custom Fullscreen Lightbox Modal */}
+      {/* Simulated Checkout Modal */}
+      {checkoutModalOpen && bookingSummary && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-dark-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-6 shadow-2xl border border-dark-100">
+            <div className="flex items-center justify-between border-b border-dark-100 pb-4">
+              <h3 className="text-xl font-bold text-dark-900 flex items-center gap-2">
+                <Lock className="w-5 h-5 text-emerald-600" />
+                <span>Confirmar y Pagar</span>
+              </h3>
+              <button
+                onClick={() => setCheckoutModalOpen(false)}
+                className="p-1 rounded-full text-dark-400 hover:bg-dark-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Trip Details */}
+            <div className="bg-dark-50 p-4 rounded-2xl space-y-3 text-xs border border-dark-100">
+              <h4 className="font-bold text-dark-800 text-sm">{property.title}</h4>
+              <div className="flex justify-between text-dark-600">
+                <span>Fechas:</span>
+                <span className="font-bold text-dark-900">{checkIn} → {checkOut} ({bookingSummary.nights} noches)</span>
+              </div>
+              <div className="flex justify-between text-dark-600">
+                <span>Huéspedes:</span>
+                <span className="font-bold text-dark-900">{guestsCount} persona(s)</span>
+              </div>
+              <div className="border-t border-dark-200 pt-2 flex justify-between text-sm font-extrabold text-dark-900">
+                <span>Total a pagar:</span>
+                <span className="text-primary-600">${bookingSummary.total} MXN</span>
+              </div>
+            </div>
+
+            {/* Payment options */}
+            <div className="space-y-3">
+              <label className="text-xs font-bold uppercase tracking-wider text-dark-500">Método de pago simulado</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('card')}
+                  className={`p-3 rounded-2xl border flex items-center justify-center gap-2 text-xs font-bold transition-all ${
+                    paymentMethod === 'card'
+                      ? 'border-primary-600 bg-primary-50 text-primary-700'
+                      : 'border-dark-200 text-dark-600 hover:bg-dark-50'
+                  }`}
+                >
+                  <CreditCard className="w-4 h-4" />
+                  Tarjeta de Débito / Crédito
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('paypal')}
+                  className={`p-3 rounded-2xl border flex items-center justify-center gap-2 text-xs font-bold transition-all ${
+                    paymentMethod === 'paypal'
+                      ? 'border-primary-600 bg-primary-50 text-primary-700'
+                      : 'border-dark-200 text-dark-600 hover:bg-dark-50'
+                  }`}
+                >
+                  <span>Paypal (Demostración)</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setCheckoutModalOpen(false)}
+                className="px-4 py-2.5 text-sm text-dark-600 font-semibold hover:bg-dark-100 rounded-xl"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={bookingLoading}
+                onClick={handleConfirmReservation}
+                className="btn-primary py-2.5 px-6 text-sm flex items-center gap-2"
+              >
+                {bookingLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                Pagar y Reservar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fullscreen Lightbox Modal */}
       {lightboxOpen && (
         <div className="fixed inset-0 bg-black z-[200] flex flex-col justify-between animate-fade-in">
-          {/* Header */}
           <div className="px-6 py-4 flex justify-between items-center bg-gradient-to-b from-black/80 to-black/0 text-white z-10">
             <span className="font-bold text-sm tracking-wide text-white/85 select-none">
               Foto {activePhotoIdx + 1} de {photosList.length}
@@ -601,7 +798,6 @@ const PropertyDetail = () => {
             </button>
           </div>
 
-          {/* Carousel Slider body */}
           <div className="flex-1 flex items-center justify-between relative px-4 sm:px-12">
             <button
               onClick={handlePrevPhoto}
@@ -626,7 +822,6 @@ const PropertyDetail = () => {
             </button>
           </div>
 
-          {/* Footer dots */}
           <div className="py-6 flex justify-center gap-1.5 bg-gradient-to-t from-black/80 to-black/0">
             {photosList.map((_, idx) => (
               <span

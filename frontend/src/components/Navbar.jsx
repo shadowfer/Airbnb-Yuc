@@ -1,5 +1,3 @@
-
-
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -21,7 +19,7 @@ const Navbar = () => {
     <nav className="bg-white/80 backdrop-blur-xl border-b border-dark-100 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          {}
+          {/* Logo */}
           <Link to="/" className="flex items-center gap-2 group">
             <span className="text-2xl">🏠</span>
             <span className="text-xl font-display font-bold text-gradient">
@@ -33,19 +31,18 @@ const Navbar = () => {
           <div className="hidden md:flex items-center gap-4">
             {isAuthenticated ? (
               <>
-                <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-dark-50">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white font-bold text-sm">
-                    {user?.firstName?.[0]?.toUpperCase()}
-                  </div>
-                  <div className="text-sm">
-                    <p className="font-semibold text-dark-800">{user?.firstName} {user?.lastName}</p>
-                    <p className="text-dark-400 text-xs">{roleLabel}</p>
-                  </div>
-                </div>
-                <Link to="/search" className="text-dark-600 hover:text-primary-500 font-medium transition-colors">
+                <Link to="/search" className="text-dark-600 hover:text-primary-500 font-medium text-sm transition-colors">
                   Buscar
                 </Link>
-                <Link to="/dashboard" className="text-dark-600 hover:text-primary-500 font-medium transition-colors">
+                <Link to="/reservations/my" className="text-dark-600 hover:text-primary-500 font-medium text-sm transition-colors">
+                  Mis Reservas
+                </Link>
+                {user?.role === 'host' && (
+                  <Link to="/host/reservations" className="text-dark-600 hover:text-primary-500 font-medium text-sm transition-colors">
+                    Reservas Recibidas
+                  </Link>
+                )}
+                <Link to="/dashboard" className="text-dark-600 hover:text-primary-500 font-medium text-sm transition-colors">
                   Panel
                 </Link>
                 {user?.role === 'host' && (
@@ -54,9 +51,20 @@ const Navbar = () => {
                     <span>Publicar</span>
                   </Link>
                 )}
+
+                <div className="flex items-center gap-3 px-3 py-1.5 rounded-xl bg-dark-50 border border-dark-100">
+                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white font-bold text-xs">
+                    {user?.firstName?.[0]?.toUpperCase()}
+                  </div>
+                  <div className="text-xs">
+                    <p className="font-semibold text-dark-800 leading-tight">{user?.firstName}</p>
+                    <p className="text-dark-400 text-[10px]">{roleLabel}</p>
+                  </div>
+                </div>
+
                 <button
                   onClick={handleLogout}
-                  className="btn-secondary text-sm py-2"
+                  className="btn-secondary text-xs py-1.5 px-3"
                   id="btn-logout"
                 >
                   Cerrar Sesión
@@ -66,14 +74,14 @@ const Navbar = () => {
               <>
                 <Link
                   to="/login"
-                  className="text-dark-600 hover:text-primary-500 font-medium transition-colors"
+                  className="text-dark-600 hover:text-primary-500 font-medium text-sm transition-colors"
                   id="nav-login"
                 >
                   Iniciar Sesión
                 </Link>
                 <Link
                   to="/register"
-                  className="btn-primary text-sm py-2"
+                  className="btn-primary text-sm py-2 px-4"
                   id="nav-register"
                 >
                   Registrarse
@@ -101,51 +109,76 @@ const Navbar = () => {
 
         {/* Mobile Menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden border-t border-dark-100 py-4 animate-fade-in">
+          <div className="md:hidden border-t border-dark-100 py-4 animate-fade-in space-y-2">
             {isAuthenticated ? (
-              <div className="space-y-3">
-                <div className="flex items-center gap-3 p-3 rounded-xl bg-dark-50">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white font-bold">
+              <>
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-dark-50 mb-3">
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white font-bold text-sm">
                     {user?.firstName?.[0]?.toUpperCase()}
                   </div>
                   <div>
-                    <p className="font-semibold text-dark-800">{user?.firstName} {user?.lastName}</p>
-                    <p className="text-dark-400 text-sm">{roleLabel}</p>
+                    <p className="font-semibold text-dark-800 text-sm">{user?.firstName} {user?.lastName}</p>
+                    <p className="text-dark-400 text-xs">{roleLabel}</p>
                   </div>
                 </div>
                 <Link
                   to="/search"
-                  className="block px-3 py-2 rounded-lg text-dark-600 hover:bg-dark-50 font-medium"
+                  className="block px-3 py-2 rounded-lg text-dark-600 hover:bg-dark-50 font-medium text-sm"
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  Buscar
+                  Buscar hospedajes
                 </Link>
                 <Link
-                  to="/dashboard"
-                  className="block px-3 py-2 rounded-lg text-dark-600 hover:bg-dark-50 font-medium"
+                  to="/reservations/my"
+                  className="block px-3 py-2 rounded-lg text-dark-600 hover:bg-dark-50 font-medium text-sm"
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  Panel
+                  Mis Reservas
                 </Link>
+                {user?.role === 'host' && (
+                  <Link
+                    to="/host/reservations"
+                    className="block px-3 py-2 rounded-lg text-dark-600 hover:bg-dark-50 font-medium text-sm"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Reservas Recibidas
+                  </Link>
+                )}
+                <Link
+                  to="/dashboard"
+                  className="block px-3 py-2 rounded-lg text-dark-600 hover:bg-dark-50 font-medium text-sm"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Panel de usuario
+                </Link>
+                {user?.role === 'host' && (
+                  <Link
+                    to="/host/properties/create"
+                    className="block px-3 py-2 rounded-lg text-primary-600 hover:bg-primary-50 font-semibold text-sm"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    🏡 Publicar nueva propiedad
+                  </Link>
+                )}
                 <button
                   onClick={handleLogout}
-                  className="w-full text-left px-3 py-2 rounded-lg text-red-500 hover:bg-red-50 font-medium"
+                  className="w-full text-left px-3 py-2 rounded-lg text-rose-600 hover:bg-rose-50 font-semibold text-sm pt-2"
                 >
                   Cerrar Sesión
                 </button>
-              </div>
+              </>
             ) : (
               <div className="space-y-2">
                 <Link
                   to="/login"
-                  className="block px-3 py-2 rounded-lg text-dark-600 hover:bg-dark-50 font-medium"
+                  className="block px-3 py-2 rounded-lg text-dark-600 hover:bg-dark-50 font-medium text-sm"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Iniciar Sesión
                 </Link>
                 <Link
                   to="/register"
-                  className="block px-3 py-2 rounded-lg text-primary-500 hover:bg-primary-50 font-medium"
+                  className="block px-3 py-2 rounded-lg text-primary-500 hover:bg-primary-50 font-medium text-sm"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Registrarse
